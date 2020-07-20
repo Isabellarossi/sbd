@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package Atec.BagAnalysis;
+
+service BagAnalysis {
+
+	rpc Analyse(stream AnalysisRequest) returns (stream AnalysisResponse) {}
+
+}
+
+message AnalysisRequest {
+	bytes image = 1;
+}
+
+message AnalysisResponse {
+	AnalysisResult result = 1;
+	repeated AnalysisFlag flags = 2;
+}
+
+enum AnalysisResult {
+	NoDecision = 0;
+    NoTubRequired = 1;
+    TubDetected = 2;
+    TubRequired = 3;
+}
+
+enum AnalysisFlag {
+	BagHasExtendedHandles = 0;
+	MultipleBagsDetected = 1;
+	UprightBag = 2;
+}
+
+
+

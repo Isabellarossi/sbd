@@ -1,0 +1,5 @@
+Correct position
+Correct orientation
+Acceptable size
+Small wheel
+Others

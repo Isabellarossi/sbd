@@ -1,0 +1,95 @@
+//Bag Analyser service gRPC interfaces
+syntax = "proto3";
+
+package Sym3.BagAnalysis;
+import "google/protobuf/timestamp.proto";
+
+
+ // Interface exported by the server.
+service BagAnalysisService {
+
+  // Starts a new analysis session between client and server.
+  //
+
+ rpc BeginSession(BeginSessionRequest) returns (BeginSessionResponse) {}
+ // Ends current session
+ rpc EndSession(ClientIdentifier) returns (EndSessionResponse) {}
+ //Starts 
+ rpc StartAnalyse(AnalyseRequest) returns (stream AnalyseResponse) {}
+ rpc StopAnalyse(ClientIdentifier) returns (StopAnalyseResponse) {}
+
+//Performs a single analysis
+rpc Analyse(AnalyseRequest) returns (AnalyseResponse) {}
+
+//Ping function
+rpc Ping(ClientIdentifier) returns (PingResponse) {}
+
+}
+
+///////////////////////////////////////////////////////////////////////
+//proto buffers
+//Specifies client details for begin session with client id and client name 
+message BeginSessionRequest {
+int32 clientId = 1;  
+string clientName = 2;
+}
+
+message BeginSessionResponse {
+int32 status = 1;
+}
+
+
+//Client id to used in requests
+message ClientIdentifier {
+int32 id = 1;
+}
+
+//End session response
+message EndSessionResponse{
+int32 status = 1;
+}
+
+//Analyse request
+message AnalyseRequest {
+ClientIdentifier clientId = 1;  
+int32 cameraId = 3;
+int32 timeout = 4;
+}
+
+//Analyse response
+message AnalyseResponse {
+enum Status {
+Unknown = 0;
+No_Bag = 1;
+Cleared = 2;
+Rejected = 3;
+};
+Status status = 1;
+repeated string rejectReasons=2;
+int32 cameraId = 3;
+google.protobuf.Timestamp timestamp = 4;
+int32 processingTime = 5;
+int32 length = 6;
+int32 width = 7;
+int32 height = 8;
+bool placementStatus = 9;
+int32 placementDetails = 10;
+bool orientationStatus = 11;
+int32 orientaionDetails =12;
+repeated string classifications=13;
+repeated string components = 14;
+int32 boundingBoxX1 = 15;
+int32 boundingBoxY1 = 16;
+int32 boundingBoxX2 = 17;
+int32 boundingBoxY2 = 18;
+string objectId = 19;
+}
+
+message StopAnalyseResponse {
+   int32 status = 1;
+}
+
+message PingResponse {
+   int32 status = 1;
+}
+
