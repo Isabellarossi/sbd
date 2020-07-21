@@ -12,7 +12,7 @@ from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import Visualizer, _create_text_labels
 from detectron2.data import DatasetCatalog, MetadataCatalog
-from event_output import output_json
+# from event_output import output_json
 
 from projects.EfficientDet.test_folder import test
 
@@ -122,7 +122,7 @@ def test_imge_generator():
     cv_img = cv2.imread(image_file)
     return cv_img
 
-
+'''
 def mask_detection(color_frame, demo, metadata):
     # Convert images to numpy arrays
     
@@ -192,7 +192,7 @@ def mask_detection(color_frame, demo, metadata):
     resResponse = output_json(filename, classes, scores, boxes)
 
     return resResponse
-
+'''
 
 
 def efficientDet_pred(cv_img, opt):
