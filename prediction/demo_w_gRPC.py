@@ -17,11 +17,11 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 # from projects.EfficientDet.test_folder import test
 
 
-from predictor import VisualizationDemo
+from detectron2.demo.predictor import VisualizationDemo
 import numpy as np
 
 # from data_transmission import server
-import settings as settings
+# import settings as settings
 
 COCO_CLASSES = ['suitcase','soft_bag','wheel','extended_handle','person','tray','upright_suitcase','spilled_bag','sphere_bag',
 'documents','bag_tag','strap_around_bag','stroller','golf_bag','surf_equipment','sport_equipment','music_equipment',
