@@ -13,8 +13,8 @@ import sys
 
 sys.path.append("..")
 # from demo.settings import *
-from prediction.settings import *
-import prediction.settings as settings
+# from prediction.settings import *
+# import prediction.settings as settings
 from prediction.demo_w_gRPC import efficientDet_pred, sbd_pred
 
 #============================================================
