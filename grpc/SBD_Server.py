@@ -15,7 +15,7 @@ sys.path.append("..")
 # from demo.settings import *
 from prediction.settings import *
 import prediction.settings as settings
-from prediction.demo_w_gRPC import AI_callback, AnalyseResponse_data, efficientDet_pred, sbd_pred
+from prediction.demo_w_gRPC import efficientDet_pred, sbd_pred
 
 #============================================================
 # classes
@@ -79,7 +79,7 @@ class Greeter(BagAnalysis_pb2_grpc.BagAnalysisServicer):
 			response = sbd_pred(dst)
 
 			# success
-			yield BagAnalysis_pb2.AnalysisResponse(result = 1,flags = [1],  )
+			yield BagAnalysis_pb2.AnalysisResponse(result = response.result,flags = response.flags,  )
 
 
 

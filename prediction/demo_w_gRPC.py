@@ -12,20 +12,16 @@ from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import Visualizer, _create_text_labels
 from detectron2.data import DatasetCatalog, MetadataCatalog
-from detectron2.event_output import output_json
+from event_output import output_json
 
 from projects.EfficientDet.test_folder import test
 
 
-
-
-from demo.predictor import VisualizationDemo
-import pyrealsense2 as rs
+from predictor import VisualizationDemo
 import numpy as np
 
-
 # from data_transmission import server
-import demo.settings as settings
+import settings as settings
 
 COCO_CLASSES = ['suitcase','soft_bag','wheel','extended_handle','person','tray','upright_suitcase','spilled_bag','sphere_bag',
 'documents','bag_tag','strap_around_bag','stroller','golf_bag','surf_equipment','sport_equipment','music_equipment',
@@ -54,17 +50,20 @@ colors = [(39, 129, 113), (164, 80, 133), (83, 122, 114), (99, 81, 172), (95, 56
 
 
 def setup_cfg():
-    config_file = "../configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+    config_file = "../detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
     cfg = get_cfg()
     cfg.merge_from_file(config_file)
     cfg.DATALOADER.NUM_WORKERS = 2
     # cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl" 
-    cfg.MODEL.WEIGHTS = "../detectron2/data/output/model_final.pth" # Windows doesn't support training.
+    cfg.MODEL.WEIGHTS = "../data/output/model_final.pth" # Windows doesn't support training.
     cfg.SOLVER.IMS_PER_BATCH = 1 # 16
     cfg.SOLVER.BASE_LR = 0.02 #0.00025  # pick a good LR
     cfg.SOLVER.MAX_ITER = 300    # 300 (15000: 9hours) iterations seems good enough for this toy dataset; you may need to train longer for a practical dataset
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 8192   # 128 faster, and good enough for this toy dataset (default: 512)
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 33  
+
+    cfg.MODEL.RETINANET.SCORE_THRESH_TEST = 0.4 # args.confidence_threshold
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.4 # args.confidence_threshold
 
     cfg.freeze()
     
@@ -103,62 +102,10 @@ def metadataset():
     
 melbourne_metadata = metadataset()
 
-def config_camera():
-        # ...from Camera 1
-    pipeline_1 = rs.pipeline()
-    config_1 = rs.config()
-    config_1.enable_device('920312073100')
-    config_1.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    config_1.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 6)
-    # ...from Camera 2
-    pipeline_2 = rs.pipeline()
-    config_2 = rs.config()
-    config_2.enable_device('913522070674')
-    # config_2.enable_device('913522070714')
-    config_2.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    config_2.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 6)
-
-    # Start streaming from both cameras
-    profile_1 = pipeline_1.start(config_1)
-    profile_2 = pipeline_2.start(config_2)
-
-
-
-    return pipeline_1, pipeline_2, profile_1, profile_2
-
-# align_to = rs.stream.color
-# align = rs.align(align_to)
-
-
-# pipeline1, pipeline2, profile_1, profile_2 = config_camera()
-
-
 cfg = setup_cfg()
 demo = VisualizationDemo(cfg)
 
 
-def get_frame(pipeline):
-
-
-    frames = pipeline.wait_for_frames()
-    aligned_frames = align.process(frames)
-    color_frame = frames.get_color_frame()
-    if not color_frame:
-        return
-
-        # Get frameset of color and depth
-    frames = pipeline.wait_for_frames()
-    # frames.get_depth_frame() is a 640x360 depth image
-    # Align the depth frame to color frame
-    aligned_frames = align.process(frames)
-    # Get aligned frames
-    aligned_depth_frame = aligned_frames.get_depth_frame()  # aligned_depth_frame is a 640x480 depth image
-    color_frame = aligned_frames.get_color_frame()
-    # Intrinsics & Extrinsics
-    depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-    depth_to_color_extrin = aligned_depth_frame.profile.get_extrinsics_to(color_frame.profile)
-
-    return color_frame
 
 
 def test_imge_generator():
@@ -174,47 +121,6 @@ def test_imge_generator():
     print("generator: ...... ", image_file)
     cv_img = cv2.imread(image_file)
     return cv_img
-
-
-RECORD_LENGTH = 40
-HEIGHT_CONVEYER = 0 #0.4 # from 0.25-0.4m
-
-def crop_depth_data(depth_image, xmin_depth,xmax_depth, ymin_depth, ymax_depth):
-
-    depth_org = depth_image[xmin_depth:xmax_depth, ymin_depth:ymax_depth].astype(float)
-
-    # Get data scale from the device and convert to meters
-    sensor = profile_1.get_device().first_depth_sensor()
-    depth_scale = sensor.get_depth_scale()
-    depth = depth_org * depth_scale
-    dist, _, _, _ = cv2.mean(depth)
-    print("Detected a {0} {1:.3} meters away.".format("object ", dist))
-    return dist
-
-def depth_detect(depth, color):
-
-    # ROI dept 
-    xmin_depth = 200
-    xmax_depth = 300
-    ymin_depth = 200
-    ymax_depth = 600
-    dist = crop_depth_data(depth, xmin_depth,xmax_depth, ymin_depth, ymax_depth)
-    if dist < 1.6 - HEIGHT_CONVEYER and dist > 0.0:
-        print("Object is detected %.2f meter away." % dist)
-        depth_detected = True
-    else:
-        # print("wait for objects.")
-        depth_detected = False
-    cv2.rectangle(color, (int(xmin_depth), int(ymin_depth)), (int(xmax_depth), int(ymax_depth)), (255, 255, 255), 2)
-
-    cv2.imwrite("hahaha.jpg",depth)
-    # cv2.imshow('COLOR IMAGE', color)
-    
-    # cv2.waitKey(10)
-    # cv2.destroyAllWindows
-    return depth_detected
-    
-
 
 
 def mask_detection(color_frame, demo, metadata):
@@ -288,127 +194,6 @@ def mask_detection(color_frame, demo, metadata):
     return resResponse
 
 
-
-
-
-def AI_callback():
-            start_time = time.time()
-            print(settings.systemID, settings.prediction_model)
-            
-            
-            # sensor1
-            if settings.cameraId == 1:
-                pipeline = pipeline1
-                profile = profile_1
-            else:
-                pipeline = pipeline2
-                profile = profile_2
-
-            frames = pipeline.wait_for_frames()
-            dl_frame = frames.get_color_frame()
-
-            # point cloud
-            aligned_frames = align.process(frames)
-  
-            aligned_depth_frame = aligned_frames.get_depth_frame()  # aligned_depth_frame is a 640x480 depth image
-            color_frame = aligned_frames.get_color_frame()
-
-            if (not color_frame) and (not aligned_depth_frame):
-                return
-            
-
-            # depth detection
-            color = np.asarray(frames[rs.stream.depth].get_data())
-            depth = np.asarray(frames[rs.stream.depth].get_data())
-            depth_detected = depth_detect(depth, color)
-            
-            # print("depth detection:.........", depth_detected)
-            
-            if not depth_detected:
-                res1 = AnalyseResponse_data()
-                res1.status = 1
-                # print("nothing detected, res value...",res)
-                return res1
-
-
-                            # Intrinsics & Extrinsics
-            depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-            depth_to_color_extrin = aligned_depth_frame.profile.get_extrinsics_to(color_frame.profile)
-            
-            # 1st detect
-            res1 = mask_detection(dl_frame, demo, melbourne_metadata)
-
-
-            # 2nd detect
-            frames_2 = pipeline.wait_for_frames()
-            dl_frame_2 = frames_2.get_color_frame()
-
-            
-            dl_done_time = time.time()
-            
-            from pointcloud.point_interface  import pose_dim_estimation
-            width = 640
-            height = 480
-
-            dimension_calculation_module = True
-            orientation_detector_module = True
-            upright_detector_module = True
-            out_of_conveyor_detector_module = True
-
-            box_point_calculation = True
-
-
-            point_cloud_module = [dimension_calculation_module, orientation_detector_module,upright_detector_module,
-                                  out_of_conveyor_detector_module]
-
-            pose, event_list_pose = pose_dim_estimation(settings.portrait,profile,aligned_depth_frame, color_frame,
-                                   depth_intrin,depth_to_color_extrin,width,height, point_cloud_module, box_point_calculation)
-            stop_time = time.time()
-            print("pose_dim_estimation time:", stop_time - start_time)
-            
-            dimension = pose[6]
-            over_sized_event = event_list_pose[0]
-            upright_event = event_list_pose[1]
-            out_of_conveyor_event = event_list_pose[2]
-            wrong_orientation_event = event_list_pose[3]
-
-            event_list_pose = []
-            event_list = []
-
-            res1.length = int(dimension[0] * 1000)
-            res1.width = int(dimension[1] *1000)
-            res1.height = int(dimension[2] * 1000)
-
-            
-            num_suitcase = sum(['suitcase' in x for x in res1.classifications ])
-
-
-            if over_sized_event == True:
-                res1.rejectReasons.append("unauthorized object")
-            elif upright_event == True and num_suitcase > 0:
-                res1.rejectReasons.append("upright position")
-                print("object", res1.classifications)
-                
-            elif out_of_conveyor_event == True:
-                res1.rejectReasons.append("out of conveyor")
-            elif wrong_orientation_event == True and num_suitcase > 0:
-                res1.rejectReasons.append("wrong orientation")
-                print("object", res1.classifications)
-                
-
-            
-            settings.event_list = res1.rejectReasons
-
-
-            stop_time = time.time()
-            res1.cameraId = settings.cameraId
-
-            res1.processingTime = int((stop_time - start_time) * 1000)
-        
-            print("total time:", stop_time - start_time)
-            
-            
-            return res1
 
 def efficientDet_pred(cv_img, opt):
 
@@ -485,35 +270,6 @@ def efficientDet_pred(cv_img, opt):
     print("efficientDet prediction time.......", (stop_time - start_time))
     return scores, labels, boxes
 
-class AnalyseResponse_data():
-    class Status(enum.Enum): 
-        Unknown = 0
-        No_Bag = 1
-        Cleared_Bag = 2
-        Not_Cleared_Bag = 3
-    # status = Status(1)
-    status = 1
-    rejectReasons = []
-    cameraId = 0
-
-    # timestamp = google.protobuf.Timestamp()
-    processingTime = 6
-    length = 7
-    width = 8
-    height = 9
-
-    placementStatus = False
-    placementDetails = 0
-    orientationStatus = False
-    orientaionDetails = 0
-    classifications=[]
-    components = []
-    boundingBoxX1 = 0
-    boundingBoxY1 = 0
-    boundingBoxX2 = 0
-    boundingBoxY2 = 0
-    objectId = ""
-
 
 
 def sbd_pred(cv_img):
@@ -561,27 +317,53 @@ def sbd_pred(cv_img):
     boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
     scores = predictions.scores if predictions.has("scores") else None
     classes = predictions.pred_classes if predictions.has("pred_classes") else None
-    # labels = _create_text_labels(classes, scores, metadata.get("thing_classes", None))
-    print("classes.shape",classes.shape)
-    a = torch.from_numpy(classes)
-    print(a)
+    labels = _create_text_labels(classes, scores, melbourne_metadata.get("thing_classes", None))
+    print("classes.shape, labels",classes.shape, labels)
+    # a = torch.from_numpy(classes)
+    # print(a)
 
-
+    objects = []
     # COCO_CLASSES
     if classes is not None:
         for i in range(len(classes)):
             if scores[i]>0.9:
-                print(classes[i])
-                if classes[0][i] == 0 : # suitcase
+                label = labels[i].split(" ")[0]
+                objects.append(label)
+                print(label)
+                if label == "suitcase":
                     print("suitcase detected")
-                if classes[0][i] == 3 : # extended handle
-                    print("suitcase detected")                    
+                elif label == "tray":
+                    print("tray")            
+                elif label == "soft_bag":
+                    print("soft bag")             
+                elif label == "extended_handle":
+                    response.flags.append(0)                     
 
+    num_tray = sum(['tray' in x for x in objects ]) # tricky: count "tray:xxxx", not just "tray", so not use: num_tray = objects.count("tray")
+    num_suitcase = sum(['suitcase' in x for x in objects ])
+    num_soft_bag = sum(['soft_bag' in x for x in objects ])
+    response = AnalysisResponse()
+
+    if (num_suitcase + num_soft_bag) > 1: # multi bags
+        response.flags.append(1)
+    
+    if num_tray >1:
+        response.result = 2 #TubDetected
+    elif num_soft_bag > 1 and num_tray ==0: 
+        response.result = 3 # TubRequired
+    elif num_suitcase > 0 :
+        response.result = 1 # NoTubRequired
+    else:
+        response.result = 0
+    print(response.result,response.flags)
 
     cv2.imwrite("image_sbd.jpg", img_result)
 
-    # result = 
-    return True
+    return response
+
+class AnalysisResponse():
+	result = 0
+	flags = []
 
 if __name__ == "__main__":
     # AI_callback()
