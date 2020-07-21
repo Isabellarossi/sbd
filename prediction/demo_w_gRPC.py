@@ -14,7 +14,7 @@ from detectron2.utils.visualizer import Visualizer, _create_text_labels
 from detectron2.data import DatasetCatalog, MetadataCatalog
 # from event_output import output_json
 
-from projects.EfficientDet.test_folder import test
+# from projects.EfficientDet.test_folder import test
 
 
 from predictor import VisualizationDemo
